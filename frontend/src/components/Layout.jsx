@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { API_URL } from '../config/api';
 
 export default function Layout({ children, currentProjectTitle }) {
   const { user, logout } = useAuth();
@@ -11,11 +12,10 @@ export default function Layout({ children, currentProjectTitle }) {
   const [projects, setProjects] = useState([]);
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
-  // Fetch user's projects for the Sidebar & Top Project Switcher
   useEffect(() => {
     const fetchProjects = async () => {
       try {
-        const res = await fetch('http://localhost:5000/api/projects', {
+        const res = await fetch(`${API_URL}/api/projects`, {
           headers: { Authorization: `Bearer ${user?.token}` },
         });
         if (res.ok) {
@@ -57,7 +57,6 @@ export default function Layout({ children, currentProjectTitle }) {
         }`}
       >
         <div>
-          {/* Brand Header */}
           <div className="h-16 px-6 flex items-center justify-between border-b border-slate-800">
             <Link
               to="/dashboard"
@@ -77,7 +76,6 @@ export default function Layout({ children, currentProjectTitle }) {
             </button>
           </div>
 
-          {/* Primary Navigation */}
           <div className="p-4 space-y-6">
             <div>
               <p className="px-3 text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">
@@ -96,7 +94,6 @@ export default function Layout({ children, currentProjectTitle }) {
               </Link>
             </div>
 
-            {/* Quick Project List */}
             <div>
               <p className="px-3 text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">
                 Your Projects ({projects.length})
@@ -128,7 +125,6 @@ export default function Layout({ children, currentProjectTitle }) {
           </div>
         </div>
 
-        {/* User Footer inside Sidebar */}
         <div className="p-4 border-t border-slate-800 bg-slate-950/40">
           <div className="flex items-center justify-between">
             <div className="truncate pr-2">
@@ -147,10 +143,8 @@ export default function Layout({ children, currentProjectTitle }) {
 
       {/* Main Content Area */}
       <div className="flex-1 flex flex-col min-w-0">
-        {/* Top Header with Mobile Toggle, Breadcrumbs, and Project Selector */}
         <header className="h-16 bg-white border-b border-slate-200 px-4 sm:px-6 flex items-center justify-between gap-4 sticky top-0 z-10">
           <div className="flex items-center gap-3 min-w-0">
-            {/* Mobile Hamburger Button */}
             <button
               onClick={() => setSidebarOpen(true)}
               className="lg:hidden p-2 rounded-lg text-slate-600 hover:bg-slate-100"
@@ -159,7 +153,6 @@ export default function Layout({ children, currentProjectTitle }) {
               ☰
             </button>
 
-            {/* Breadcrumbs */}
             <nav className="flex items-center space-x-2 text-sm truncate">
               <Link to="/dashboard" className="text-slate-500 hover:text-blue-600 font-medium">
                 Projects
@@ -175,7 +168,6 @@ export default function Layout({ children, currentProjectTitle }) {
             </nav>
           </div>
 
-          {/* Project Switcher Dropdown */}
           <div className="flex items-center gap-2 shrink-0">
             <label htmlFor="project-switcher" className="hidden sm:inline text-xs font-medium text-slate-500">
               Switch Project:
@@ -196,7 +188,6 @@ export default function Layout({ children, currentProjectTitle }) {
           </div>
         </header>
 
-        {/* Page Body */}
         <main className="flex-1 p-4 sm:p-6 max-w-6xl w-full mx-auto">
           {children}
         </main>

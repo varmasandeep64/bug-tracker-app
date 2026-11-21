@@ -1,7 +1,10 @@
 import { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { API_URL } from '../config/api';
 import Layout from '../components/Layout';
+import KanbanBoard from '../components/KanbanBoard';
+import TicketModal from '../components/TicketModal';
 
 export default function ProjectTickets() {
   const { projectId } = useParams();
@@ -11,8 +14,14 @@ export default function ProjectTickets() {
   const [tickets, setTickets] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [viewMode, setViewMode] = useState('board');
+  const [selectedTicket, setSelectedTicket] = useState(null);
 
-  // New Ticket Form State
+  const [searchQuery, setSearchQuery] = useState('');
+  const [statusFilter, setStatusFilter] = useState('');
+  const [priorityFilter, setPriorityFilter] = useState('');
+  const [assigneeFilter, setAssigneeFilter] = useState('');
+
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [type, setType] = useState('bug');
@@ -26,22 +35,41 @@ export default function ProjectTickets() {
   };
 
   useEffect(() => {
-    setLoading(true);
-    const fetchProjectAndTickets = async () => {
+    const fetchProject = async () => {
       try {
-        const [projRes, ticketsRes] = await Promise.all([
-          fetch(`http://localhost:5000/api/projects/${projectId}`, { headers: authHeaders }),
-          fetch(`http://localhost:5000/api/tickets/project/${projectId}`, { headers: authHeaders }),
-        ]);
+        const res = await fetch(`${API_URL}/api/projects/${projectId}`, {
+          headers: authHeaders,
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.message || 'Failed to load project');
+        setProject(data);
+      } catch (err) {
+        setError(err.message);
+      }
+    };
 
-        const projData = await projRes.json();
-        const ticketsData = await ticketsRes.json();
+    fetchProject();
+  }, [projectId]);
 
-        if (!projRes.ok) throw new Error(projData.message || 'Failed to load project');
-        if (!ticketsRes.ok) throw new Error(ticketsData.message || 'Failed to load tickets');
+  useEffect(() => {
+    const fetchFilteredTickets = async () => {
+      setLoading(true);
+      try {
+        const params = new URLSearchParams();
+        if (searchQuery.trim()) params.append('search', searchQuery.trim());
+        if (statusFilter) params.append('status', statusFilter);
+        if (priorityFilter) params.append('priority', priorityFilter);
+        if (assigneeFilter) params.append('assignee', assigneeFilter);
 
-        setProject(projData);
-        setTickets(ticketsData);
+        const queryString = params.toString() ? `?${params.toString()}` : '';
+        const res = await fetch(
+          `${API_URL}/api/tickets/project/${projectId}${queryString}`,
+          { headers: authHeaders }
+        );
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.message || 'Failed to load tickets');
+
+        setTickets(data);
       } catch (err) {
         setError(err.message);
       } finally {
@@ -49,8 +77,8 @@ export default function ProjectTickets() {
       }
     };
 
-    fetchProjectAndTickets();
-  }, [projectId]);
+    fetchFilteredTickets();
+  }, [projectId, searchQuery, statusFilter, priorityFilter, assigneeFilter]);
 
   const handleCreateTicket = async (e) => {
     e.preventDefault();
@@ -59,7 +87,7 @@ export default function ProjectTickets() {
     setError('');
 
     try {
-      const res = await fetch('http://localhost:5000/api/tickets', {
+      const res = await fetch(`${API_URL}/api/tickets`, {
         method: 'POST',
         headers: authHeaders,
         body: JSON.stringify({
@@ -89,8 +117,14 @@ export default function ProjectTickets() {
   };
 
   const handleStatusChange = async (ticketId, newStatus) => {
+    const previousTickets = [...tickets];
+
+    setTickets((prev) =>
+      prev.map((t) => (t._id === ticketId ? { ...t, status: newStatus } : t))
+    );
+
     try {
-      const res = await fetch(`http://localhost:5000/api/tickets/${ticketId}`, {
+      const res = await fetch(`${API_URL}/api/tickets/${ticketId}`, {
         method: 'PUT',
         headers: authHeaders,
         body: JSON.stringify({ status: newStatus }),
@@ -98,11 +132,32 @@ export default function ProjectTickets() {
       const updated = await res.json();
       if (!res.ok) throw new Error(updated.message || 'Failed to update status');
 
-      setTickets(tickets.map((t) => (t._id === ticketId ? updated : t)));
+      setTickets((prev) => prev.map((t) => (t._id === ticketId ? updated : t)));
     } catch (err) {
+      setTickets(previousTickets);
       setError(err.message);
     }
   };
+
+  const handleTicketUpdated = (updatedTicket) => {
+    setTickets((prev) =>
+      prev.map((t) => (t._id === updatedTicket._id ? updatedTicket : t))
+    );
+    setSelectedTicket(updatedTicket);
+  };
+
+  const handleTicketDeleted = (deletedId) => {
+    setTickets((prev) => prev.filter((t) => t._id !== deletedId));
+  };
+
+  const clearFilters = () => {
+    setSearchQuery('');
+    setStatusFilter('');
+    setPriorityFilter('');
+    setAssigneeFilter('');
+  };
+
+  const hasActiveFilters = searchQuery || statusFilter || priorityFilter || assigneeFilter;
 
   const priorityBadge = (level) => {
     const styles = {
@@ -125,8 +180,7 @@ export default function ProjectTickets() {
 
   return (
     <Layout currentProjectTitle={project?.title}>
-      <div className="space-y-8">
-        {/* Project Header Summary */}
+      <div className="space-y-6">
         <div className="bg-white rounded-xl border border-slate-200 p-6 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
             <h1 className="text-2xl font-bold text-slate-900">{project?.title || 'Loading...'}</h1>
@@ -151,7 +205,6 @@ export default function ProjectTickets() {
           </div>
         )}
 
-        {/* Create Ticket Form */}
         <section className="bg-white rounded-xl border border-slate-200 p-6 shadow-sm">
           <h2 className="text-lg font-bold text-slate-900 mb-4">Report New Issue / Ticket</h2>
           <form onSubmit={handleCreateTicket} className="space-y-4">
@@ -220,26 +273,122 @@ export default function ProjectTickets() {
           </form>
         </section>
 
-        {/* Ticket List */}
-        <section>
-          <h2 className="text-lg font-bold text-slate-900 mb-4">
-            Project Issues ({tickets.length})
-          </h2>
+        <section className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
+            <input
+              type="text"
+              placeholder="🔍 Search title or description..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="lg:col-span-2 px-3 py-2 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+
+            <select
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value)}
+              className="px-3 py-2 text-sm border border-slate-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              <option value="">All Statuses</option>
+              <option value="To Do">To Do</option>
+              <option value="In Progress">In Progress</option>
+              <option value="Done">Done</option>
+            </select>
+
+            <select
+              value={priorityFilter}
+              onChange={(e) => setPriorityFilter(e.target.value)}
+              className="px-3 py-2 text-sm border border-slate-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              <option value="">All Priorities</option>
+              <option value="low">Low</option>
+              <option value="medium">Medium</option>
+              <option value="high">High</option>
+              <option value="critical">Critical</option>
+            </select>
+
+            <select
+              value={assigneeFilter}
+              onChange={(e) => setAssigneeFilter(e.target.value)}
+              className="px-3 py-2 text-sm border border-slate-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              <option value="">All Assignees</option>
+              {project?.teamMembers?.map((member) => (
+                <option key={member._id} value={member._id}>
+                  {member.name}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {hasActiveFilters && (
+            <div className="mt-3 pt-2 border-t border-slate-100 flex justify-between items-center text-xs">
+              <span className="text-slate-500">Showing filtered results ({tickets.length})</span>
+              <button
+                type="button"
+                onClick={clearFilters}
+                className="text-blue-600 font-semibold hover:underline"
+              >
+                Reset All Filters
+              </button>
+            </div>
+          )}
+        </section>
+
+        <section className="space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <h2 className="text-lg font-bold text-slate-900">
+              Sprint Board ({tickets.length})
+            </h2>
+
+            <div className="inline-flex rounded-lg border border-slate-200 bg-white p-1 self-start">
+              <button
+                type="button"
+                onClick={() => setViewMode('board')}
+                className={`px-3 py-1.5 rounded-md text-xs font-semibold transition ${
+                  viewMode === 'board'
+                    ? 'bg-blue-600 text-white'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                Kanban Board
+              </button>
+              <button
+                type="button"
+                onClick={() => setViewMode('list')}
+                className={`px-3 py-1.5 rounded-md text-xs font-semibold transition ${
+                  viewMode === 'list'
+                    ? 'bg-blue-600 text-white'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                List View
+              </button>
+            </div>
+          </div>
 
           {loading ? (
             <p className="text-sm text-slate-500">Loading issues...</p>
+          ) : viewMode === 'board' ? (
+            <KanbanBoard
+              tickets={tickets}
+              onStatusChange={handleStatusChange}
+              onSelectTicket={(ticket) => setSelectedTicket(ticket)}
+            />
           ) : tickets.length === 0 ? (
             <div className="bg-white rounded-xl border border-dashed border-slate-300 p-10 text-center">
-              <p className="text-slate-500 text-sm">No issues reported in this project yet.</p>
+              <p className="text-slate-500 text-sm">No issues match your current filters.</p>
             </div>
           ) : (
             <div className="space-y-3">
               {tickets.map((ticket) => (
                 <div
                   key={ticket._id}
-                  className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4"
+                  className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4 hover:border-blue-300 transition"
                 >
-                  <div className="space-y-1.5">
+                  <div
+                    onClick={() => setSelectedTicket(ticket)}
+                    className="space-y-1.5 cursor-pointer flex-1"
+                  >
                     <div className="flex flex-wrap items-center gap-2">
                       <span className={`px-2 py-0.5 rounded text-xs font-semibold uppercase ${typeBadge(ticket.type)}`}>
                         {ticket.type}
@@ -247,7 +396,9 @@ export default function ProjectTickets() {
                       <span className={`px-2 py-0.5 rounded text-xs font-semibold uppercase ${priorityBadge(ticket.priority)}`}>
                         {ticket.priority}
                       </span>
-                      <h3 className="font-bold text-slate-900 text-base">{ticket.title}</h3>
+                      <h3 className="font-bold text-slate-900 text-base hover:text-blue-600">
+                        {ticket.title}
+                      </h3>
                     </div>
 
                     {ticket.description && (
@@ -267,10 +418,10 @@ export default function ProjectTickets() {
                       <span>
                         Created: {new Date(ticket.createdAt).toLocaleDateString()}
                       </span>
+                      <span className="text-blue-600 font-medium">💬 Open / Edit</span>
                     </div>
                   </div>
 
-                  {/* Quick Status Selector */}
                   <div className="flex items-center gap-2 shrink-0">
                     <label className="text-xs font-medium text-slate-500">Status:</label>
                     <select
@@ -289,6 +440,16 @@ export default function ProjectTickets() {
           )}
         </section>
       </div>
+
+      {selectedTicket && (
+        <TicketModal
+          ticket={selectedTicket}
+          project={project}
+          onClose={() => setSelectedTicket(null)}
+          onTicketUpdated={handleTicketUpdated}
+          onTicketDeleted={handleTicketDeleted}
+        />
+      )}
     </Layout>
   );
 }

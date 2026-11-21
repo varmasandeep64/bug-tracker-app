@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { API_URL } from '../config/api';
 import Layout from '../components/Layout';
 
 export default function Dashboard() {
@@ -22,7 +23,7 @@ export default function Dashboard() {
 
   const fetchProjects = async () => {
     try {
-      const res = await fetch('http://localhost:5000/api/projects', {
+      const res = await fetch(`${API_URL}/api/projects`, {
         headers: authHeaders,
       });
       const data = await res.json();
@@ -46,7 +47,7 @@ export default function Dashboard() {
     setError('');
 
     try {
-      const res = await fetch('http://localhost:5000/api/projects', {
+      const res = await fetch(`${API_URL}/api/projects`, {
         method: 'POST',
         headers: authHeaders,
         body: JSON.stringify({ title, description }),
@@ -67,7 +68,7 @@ export default function Dashboard() {
   const handleDeleteProject = async (projectId) => {
     if (!window.confirm('Delete this project?')) return;
     try {
-      const res = await fetch(`http://localhost:5000/api/projects/${projectId}`, {
+      const res = await fetch(`${API_URL}/api/projects/${projectId}`, {
         method: 'DELETE',
         headers: authHeaders,
       });
@@ -88,7 +89,7 @@ export default function Dashboard() {
     setError('');
 
     try {
-      const res = await fetch(`http://localhost:5000/api/projects/${projectId}/members`, {
+      const res = await fetch(`${API_URL}/api/projects/${projectId}/members`, {
         method: 'POST',
         headers: authHeaders,
         body: JSON.stringify({ email }),
@@ -105,7 +106,7 @@ export default function Dashboard() {
 
   const handleRemoveMember = async (projectId, userId) => {
     try {
-      const res = await fetch(`http://localhost:5000/api/projects/${projectId}/members/${userId}`, {
+      const res = await fetch(`${API_URL}/api/projects/${projectId}/members/${userId}`, {
         method: 'DELETE',
         headers: authHeaders,
       });
@@ -128,7 +129,6 @@ export default function Dashboard() {
           </div>
         )}
 
-        {/* Create Project Section */}
         <section className="bg-white rounded-xl border border-slate-200 p-6 shadow-sm">
           <h2 className="text-lg font-bold text-slate-900 mb-4">Create New Project</h2>
           <form onSubmit={handleCreateProject} className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -157,7 +157,6 @@ export default function Dashboard() {
           </form>
         </section>
 
-        {/* Projects Grid */}
         <section>
           <h2 className="text-lg font-bold text-slate-900 mb-4">Your Projects ({projects.length})</h2>
 
@@ -203,7 +202,6 @@ export default function Dashboard() {
                         {project.description || 'No description provided.'}
                       </p>
 
-                      {/* Team Members */}
                       <div className="mt-4 pt-4 border-t border-slate-100">
                         <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">
                           Team Members ({project.teamMembers?.length || 0})

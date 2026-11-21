@@ -24,10 +24,12 @@ app.get('/api/health', (req, res) => {
   });
 });
 
-// <--- THIS IS THE NEW LINE (Mounting the auth routes)
+// Routes
 app.use('/api/auth', require('./routes/authRoutes'));
 app.use('/api/projects', require('./routes/projectRoutes'));
 app.use('/api/tickets', require('./routes/ticketRoutes'));
+app.use('/api/comments', require('./routes/commentRoutes'));
+
 const PORT = process.env.PORT || 5000;
 
 app.listen(PORT, () => {
