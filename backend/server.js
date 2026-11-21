@@ -13,7 +13,7 @@ app.use(
     origin: [
       'http://localhost:5173',
       'http://localhost:5174',
-      'https://client-zeta-teal-61.vercel.app',
+      'https://bug-tracker-app-five.vercel.app',
       process.env.CLIENT_URL,
     ].filter(Boolean),
     credentials: true,
