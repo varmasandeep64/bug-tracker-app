@@ -6,7 +6,16 @@ const AuthContext = createContext();
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(() => {
     const saved = localStorage.getItem('user');
-    return saved ? JSON.parse(saved) : null;
+    if (!saved || saved === 'undefined' || saved === 'null') {
+      localStorage.removeItem('user');
+      return null;
+    }
+    try {
+      return JSON.parse(saved);
+    } catch {
+      localStorage.removeItem('user');
+      return null;
+    }
   });
 
   const login = async (email, password) => {
@@ -18,8 +27,10 @@ export const AuthProvider = ({ children }) => {
     const data = await res.json();
     if (!res.ok) throw new Error(data.message || 'Login failed');
 
-    localStorage.setItem('user', JSON.stringify(data));
-    setUser(data);
+    if (data && typeof data === 'object') {
+      localStorage.setItem('user', JSON.stringify(data));
+      setUser(data);
+    }
     return data;
   };
 
@@ -32,8 +43,10 @@ export const AuthProvider = ({ children }) => {
     const data = await res.json();
     if (!res.ok) throw new Error(data.message || 'Registration failed');
 
-    localStorage.setItem('user', JSON.stringify(data));
-    setUser(data);
+    if (data && typeof data === 'object') {
+      localStorage.setItem('user', JSON.stringify(data));
+      setUser(data);
+    }
     return data;
   };
 
